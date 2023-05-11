@@ -4,7 +4,7 @@ from scapy.all import *
 from time import time
 from typing import List
 
-SAMPLES_PER_TTL = 1#2**5
+SAMPLES_PER_TTL = 2**5
 MAX_TTL = 2**5
 
 def timeit(f):
@@ -15,7 +15,6 @@ def timeit(f):
 
 class RouteResponse(ABC):
     segment_time: float
-    pass
 
 class NoResponse(RouteResponse):
     segment_time = 0
@@ -37,7 +36,7 @@ class RouterResponse(RouteResponse):
     def from_route(ip: string, total_time: float, route: List[Route]) -> Route:
         return RouterResponse(ip, total_time - sum(map(lambda x: x.segment_time, route)))
 
-def gather_samples(dst_ip):
+def traceroute(dst_ip):
     route = [RouterResponse(IP().src, 0)]
 
     for ttl in range(1, MAX_TTL):
@@ -59,15 +58,15 @@ def gather_samples(dst_ip):
 # Cada ruta tiene un objecto RouteResponse por valor de TTL: 
 # - NoResponse si se corto por timeout 
 # - RouterResponse si respondieron con TTLTimeExceeded
-def traceroute(dst_ip):
+def sample_routes(dst_ip):
     routes = []
 
     for _ in range(SAMPLES_PER_TTL):
-        routes.append(gather_samples(dst_ip))
+        routes.append(traceroute(dst_ip))
 
     return routes
 
 if __name__ == '__main__':
-    routers = traceroute(sys.argv[1])
+    routers = sample_routes(sys.argv[1])
     print(routers)
     #print(f'total rtt: {sum(map(lambda x: x.segment_time, routers[0]))}')
