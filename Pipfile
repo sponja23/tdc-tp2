@@ -6,9 +6,15 @@ name = "pypi"
 [packages]
 scapy = "2.5.0"
 numpy = "*"
+geopandas = "*"
+requests = "*"
+matplotlib = "*"
+pandas = "*"
+shapely = "*"
 
 [dev-packages]
 mypy = "*"
+types-requests = "*"
 
 [requires]
 python_version = "3.10"
