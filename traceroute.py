@@ -1,72 +1,104 @@
-from abc import ABC
+from dataclasses import dataclass
 import sys
-from scapy.all import *
+from abc import ABC, abstractmethod
 from time import time
-from typing import List
+from typing import Callable, TypeVar
+
+
+from scapy.layers.inet import ICMP, IP
+from scapy.route import Route
+from scapy.sendrecv import sr1
 
 SAMPLES_PER_TTL = 2**5
 MAX_TTL = 2**5
 
-def timeit(f):
+IPAddress = str
+
+
+T = TypeVar("T")
+
+
+def timeit(f: Callable[[], T]) -> tuple[T, float]:
     start_time = time()
     ret = f()
     end_time = time()
     return (ret, end_time - start_time)
 
+
 class RouteResponse(ABC):
-    segment_time: float
+    @abstractmethod
+    def get_segment_time(self) -> float:
+        pass
+
 
 class NoResponse(RouteResponse):
-    segment_time = 0
+    def get_segment_time(self) -> float:
+        return 0
 
     def __repr__(self) -> str:
-        return 'sin respuesta'
+        return "sin respuesta"
 
+
+@dataclass
 class RouterResponse(RouteResponse):
-    ip: string
-
-    def __init__(self, ip: string, segment_time: float) -> None:
-        self.ip = ip
-        self.segment_time = segment_time
+    ip: str
+    segment_time: float
 
     def __repr__(self) -> str:
-        return f'({self.ip}, {self.segment_time})'
-    
-    @staticmethod
-    def from_route(ip: string, total_time: float, route: List[Route]) -> Route:
-        return RouterResponse(ip, total_time - sum(map(lambda x: x.segment_time, route)))
+        return f"({self.ip}, {self.segment_time})"
 
-def traceroute(dst_ip):
-    route = [RouterResponse(IP().src, 0)]
+    def get_segment_time(self) -> float:
+        return self.segment_time
 
-    for ttl in range(1, MAX_TTL):
-        probe = IP(dst=dst_ip, ttl=ttl) / ICMP() # echo-request por defecto
-        (res, rtt) = timeit(lambda: sr1(probe, verbose=False, timeout=0.1))
-        
-        if res is None: 
+    @classmethod
+    def from_route(cls, ip: IPAddress, total_time: float, route: "TTLRoute") -> Route:
+        return cls(
+            ip, total_time - sum(response.get_segment_time() for response in route)
+        )
+
+
+TTLRoute = list[RouteResponse]
+
+
+def traceroute(dst_ip: IPAddress, max_ttl: int = MAX_TTL) -> TTLRoute:
+    route: TTLRoute = [RouterResponse(IP().src, 0)]
+
+    for ttl in range(1, max_ttl):
+        probe = IP(dst=dst_ip, ttl=ttl) / ICMP()  # echo-request por defecto
+        res, rtt = timeit(lambda: sr1(probe, verbose=False, timeout=0.1))
+
+        if res is None:
             route.append(NoResponse())
             continue
 
         route.append(RouterResponse.from_route(res.src, rtt, route))
 
         # llegamos al destino
-        if res.src == dst_ip: break
+        if res.src == dst_ip:
+            break
 
     return route
 
-# Retorna una lista de presuntas rutas por la cual viajo el paquete de ping.
-# Cada ruta tiene un objecto RouteResponse por valor de TTL: 
-# - NoResponse si se corto por timeout 
-# - RouterResponse si respondieron con TTLTimeExceeded
-def sample_routes(dst_ip):
+
+def sample_routes(
+    dst_ip: IPAddress, *, samples_per_ttl: int = SAMPLES_PER_TTL
+) -> list[TTLRoute]:
+    """
+    Retorna una lista de presuntas rutas por la cual viajó el paquete de ping.
+
+    Cada ruta tiene un objecto RouteResponse por valor de TTL:
+    - NoResponse si se cortó por timeout
+    - RouterResponse si respondieron con TTLTimeExceeded
+    """
     routes = []
 
-    for _ in range(SAMPLES_PER_TTL):
+    for _ in range(samples_per_ttl):
         routes.append(traceroute(dst_ip))
 
     return routes
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     routers = sample_routes(sys.argv[1])
     print(routers)
-    #print(f'total rtt: {sum(map(lambda x: x.segment_time, routers[0]))}')
+    # print(f'total rtt: {sum(map(lambda x: x.segment_time, routers[0]))}')
