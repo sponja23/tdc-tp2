@@ -1,3 +1,4 @@
+from collections import Counter
 from dataclasses import dataclass
 import sys
 from abc import ABC, abstractmethod
@@ -80,9 +81,12 @@ def traceroute(dst_ip: IPAddress, max_ttl: int = MAX_TTL) -> TTLRoute:
     return route
 
 
+RouteSamples = list[TTLRoute]
+
+
 def sample_routes(
     dst_ip: IPAddress, *, samples_per_ttl: int = SAMPLES_PER_TTL
-) -> list[TTLRoute]:
+) -> RouteSamples:
     """
     Retorna una lista de presuntas rutas por la cual viajó el paquete de ping.
 
@@ -96,6 +100,42 @@ def sample_routes(
         routes.append(traceroute(dst_ip))
 
     return routes
+
+
+def average_route(route_samples: RouteSamples) -> TTLRoute:
+    """
+    Retorna la ruta promedio de una lista de rutas.
+
+    La ruta promedio es una lista de RouterResponse, donde cada RouterResponse
+    tiene como ip la ip más frecuente de las respuestas para ese TTL, y como
+    segment_time el promedio de los segment_time de las respuestas para esa IP.
+    """
+    average_route: TTLRoute = []
+
+    for ttl_responses in zip(*route_samples):
+        if all(isinstance(response, NoResponse) for response in ttl_responses):
+            average_route.append(NoResponse())
+            continue
+
+        most_common_ip, num_pkts_with_ip = Counter(
+            response.ip
+            for response in ttl_responses
+            if isinstance(response, RouterResponse)
+        ).most_common(1)[0]
+
+        average_segment_time = (
+            sum(
+                response.get_segment_time()
+                for response in ttl_responses
+                if isinstance(response, RouterResponse)
+                and response.ip == most_common_ip
+            )
+            / num_pkts_with_ip
+        )
+
+        average_route.append(RouterResponse(most_common_ip, average_segment_time))
+
+    return average_route
 
 
 if __name__ == "__main__":
