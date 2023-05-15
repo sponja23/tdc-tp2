@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from collections import Counter
 from dataclasses import dataclass
 from pprint import pprint
 from time import time
-from typing import Callable, TypeVar
+from typing import Any, Callable, TypeVar
 
 from scapy.layers.inet import ICMP, IP
-from scapy.route import Route
 from scapy.sendrecv import sr1
 from tqdm import tqdm
 
@@ -76,28 +75,32 @@ class RouterResponse(RouteResponse):
     def is_private(self) -> bool:
         return self.ip.startswith("192.168")
 
-    @classmethod
-    def from_route(cls, ip: IPAddress, total_time: float, route: "TTLRoute") -> Route:
-        return cls(
-            ip, total_time - sum(response.get_segment_time() for response in route)
-        )
-
 
 TTLRoute = list[RouteResponse]
 
 
-def traceroute(dst_ip: IPAddress, max_ttl: int = MAX_TTL) -> TTLRoute:
+def echo_request(dst_ip: IPAddress, ttl: int, timeout: float) -> tuple[Any, float]:
+    """Envía un Echo-Request y mide el RTT en ms"""
+    probe = IP(dst=dst_ip, ttl=ttl) / ICMP()
+    return timeit(lambda: sr1(probe, verbose=False, timeout=1))
+
+
+def traceroute(
+    dst_ip: IPAddress, max_ttl: int = MAX_TTL, timeout: float = 1
+) -> TTLRoute:
+    """Retorna una lista de RouteResponse con los TTLs de la ruta al destino"""
     route: TTLRoute = [RouterResponse(IP().src, 0)]
 
     for ttl in tqdm(range(1, max_ttl + 1), desc="Midiendo TTLs"):
-        probe = IP(dst=dst_ip, ttl=ttl) / ICMP()  # echo-request por defecto
-        res, rtt = timeit(lambda: sr1(probe, verbose=False, timeout=0.1))
+        res, rtt = echo_request(dst_ip, ttl, timeout=timeout)
 
         if res is None:
             route.append(NoResponse())
             continue
 
-        route.append(RouterResponse.from_route(res.src, rtt, route))
+        rtt_diff = rtt - sum(response.get_segment_time() for response in route)
+
+        route.append(RouterResponse(ip=res.src, segment_time=rtt_diff))
 
         # llegamos al destino
         if res.src == dst_ip:
@@ -110,7 +113,11 @@ RouteSamples = list[TTLRoute]
 
 
 def sample_routes(
-    dst_ip: IPAddress, *, samples_per_ttl: int = SAMPLES_PER_TTL, max_ttl: int = MAX_TTL
+    dst_ip: IPAddress,
+    *,
+    samples_per_ttl: int = SAMPLES_PER_TTL,
+    max_ttl: int = MAX_TTL,
+    timeout: float = 1,
 ) -> RouteSamples:
     """
     Retorna una lista de presuntas rutas por la cual viajó el paquete de ping.
@@ -122,16 +129,9 @@ def sample_routes(
     routes = []
 
     for _ in tqdm(range(samples_per_ttl), desc="Midiendo rutas"):
-        routes.append(traceroute(dst_ip, max_ttl=max_ttl))
+        routes.append(traceroute(dst_ip, max_ttl=max_ttl, timeout=timeout))
 
     return routes
-
-
-def pad_routes(route_samples: RouteSamples, desired_distance: int) -> RouteSamples:
-    return [
-        route + [NoResponse() for _ in range(desired_distance - len(route))]
-        for route in route_samples
-    ]
 
 
 def average_route(route_samples: RouteSamples) -> TTLRoute:
@@ -148,10 +148,12 @@ def average_route(route_samples: RouteSamples) -> TTLRoute:
         len(route) for route in route_samples if not isinstance(route[-1], NoResponse)
     ).most_common(1)[0]
 
-    # Pad shorter routes with NoResponse
-    padded_routes = pad_routes(route_samples, most_common_distance)
+    # Nos quedamos solo con las rutas de la misma distancia
+    route_samples = [
+        route for route in route_samples if len(route) == most_common_distance
+    ]
 
-    for ttl_responses in zip(*padded_routes):
+    for ttl_responses in zip(*route_samples):
         if all(isinstance(response, NoResponse) for response in ttl_responses):
             average_route.append(NoResponse())
             continue
@@ -185,11 +187,22 @@ traceroute_parser.add_argument(
 traceroute_parser.add_argument(
     "--max-ttl", type=int, default=MAX_TTL, help="TTL máximo para traceroute"
 )
+traceroute_parser.add_argument(
+    "--timeout", type=float, default=1, help="Timeout para cada paquete"
+)
+
+
+def average_route_from_args(args: Namespace) -> TTLRoute:
+    routes = sample_routes(
+        args.ip,
+        samples_per_ttl=args.samples,
+        max_ttl=args.max_ttl,
+        timeout=args.timeout,
+    )
+
+    return average_route(routes)
 
 
 if __name__ == "__main__":
     args = traceroute_parser.parse_args()
-
-    routes = sample_routes(args.ip, samples_per_ttl=args.samples, max_ttl=args.max_ttl)
-
-    pprint(routes)
+    pprint(average_route_from_args(args))

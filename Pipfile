@@ -12,6 +12,7 @@ matplotlib = "*"
 pandas = "*"
 shapely = "*"
 tqdm = "*"
+python-dotenv = "*"
 
 [dev-packages]
 mypy = "*"
