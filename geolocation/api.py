@@ -7,13 +7,13 @@ from os.path import dirname, realpath
 from pathlib import Path
 from typing import Any, Mapping, Type
 
+import dotenv
 import requests
-from dotenv import load_dotenv
 
 from traceroute import IPAddress
 
 # Cargo las API keys
-load_dotenv()
+dotenv.load_dotenv()
 
 
 __location__ = realpath(Path(getcwd()) / dirname(__file__))

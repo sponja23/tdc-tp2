@@ -100,6 +100,14 @@ def traceroute(
 
         rtt_diff = rtt - sum(response.get_segment_time() for response in route)
 
+        # Consigna:
+        # > Tener en cuenta que esta resta puede dar un número negativo,
+        # > en este caso se puede obviar el cálculo de RTT entre saltos y
+        # > calcularlo con el próximo salto que de positivo.
+
+        if rtt_diff < 0:
+            rtt_diff = 0
+
         route.append(RouterResponse(ip=res.src, segment_time=rtt_diff))
 
         # llegamos al destino

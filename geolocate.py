@@ -31,7 +31,7 @@ if __name__ == "__main__":
     api_client = GeolocationAPIClient.get_client(args.api_client)
     route_coordinates = geolocate_route(route, api_client)
 
-    plot_route(route_coordinates, ax)
+    plot_route(route, route_coordinates, ax)
 
     world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
     world.plot(ax=ax, color="white", edgecolor="black")
