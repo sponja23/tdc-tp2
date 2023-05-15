@@ -5,10 +5,12 @@ from dataclasses import dataclass
 from pprint import pprint
 from time import time
 from typing import Any, Callable, TypeVar
+from socket import getnameinfo
 
 from scapy.layers.inet import ICMP, IP
 from scapy.sendrecv import sr1
 from tqdm import tqdm
+import pickle
 
 SAMPLES_PER_TTL = 2**5
 MAX_TTL = 2**6
@@ -64,7 +66,9 @@ class RouterResponse(RouteResponse):
     segment_time: float
 
     def __repr__(self) -> str:
-        return f"({self.ip}, {self.segment_time})"
+        domain = getnameinfo((self.ip, 0), 0)[0]
+        domain_text = f" ({domain})" if domain != self.ip else ''
+        return f"({self.ip}{domain_text}, {self.segment_time})"
 
     def get_segment_time(self) -> float:
         return self.segment_time
@@ -198,6 +202,9 @@ traceroute_parser.add_argument(
 traceroute_parser.add_argument(
     "--timeout", type=float, default=1, help="Timeout para cada paquete"
 )
+traceroute_parser.add_argument(
+    "--output", help="Path a donde guardar la ruta"
+)
 
 
 def average_route_from_args(args: Namespace) -> TTLRoute:
@@ -213,4 +220,10 @@ def average_route_from_args(args: Namespace) -> TTLRoute:
 
 if __name__ == "__main__":
     args = traceroute_parser.parse_args()
-    pprint(average_route_from_args(args))
+    route = average_route_from_args(args)
+
+    if args.output:
+        with open(args.output, 'wb') as pkl:
+            pickle.dump(route, pkl, pickle.HIGHEST_PROTOCOL)
+
+    pprint(route)

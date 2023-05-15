@@ -10,7 +10,9 @@ from matplotlib import pyplot as plt
 
 from geolocation.api import GeolocationAPIClient, get_my_ip
 from geolocation.geolocation import geolocate_route, plot_route
-from traceroute import average_route_from_args, traceroute_parser
+from traceroute import * # para que funcione bien el pickle :(
+import pickle
+import socket
 
 if __name__ == "__main__":
     traceroute_parser.add_argument(
@@ -21,7 +23,14 @@ if __name__ == "__main__":
     )
 
     args = traceroute_parser.parse_args()
-    route = average_route_from_args(args)
+
+    try: 
+        socket.inet_aton(args.ip)
+        route = average_route_from_args(args)
+    except:
+        with open(args.ip, 'rb') as pkl:
+            route = pickle.load(pkl)
+
     pprint(route)
 
     my_ip = get_my_ip()
