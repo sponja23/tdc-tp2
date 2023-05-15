@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 
 from traceroute import IPAddress
 
-
 # Cargo las API keys
 load_dotenv()
 
@@ -124,7 +123,8 @@ class IPGeolocationIOClient(CachedGeolocationAPIClient, JSONGeolocationAPIClient
     name = "ipgeolocationio"
 
     def __init__(self, api_key: str = os.environ["IPGEOLOCATIONIO_KEY"]) -> None:
-        super().__init__()
+        CachedGeolocationAPIClient.__init__(self)
+        JSONGeolocationAPIClient.__init__(self)
         self.api_key = api_key
 
     def get_url(self, ip: IPAddress) -> str:

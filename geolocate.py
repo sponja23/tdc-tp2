@@ -4,12 +4,13 @@ Separé esto de lo demás porque python es un idiota con los imports
 """
 
 from pprint import pprint
+
+import geopandas as gpd
 from matplotlib import pyplot as plt
+
 from geolocation.api import GeolocationAPIClient, get_my_ip
 from geolocation.geolocation import geolocate_route, plot_route
-import geopandas as gpd
 from traceroute import average_route_from_args, traceroute_parser
-
 
 if __name__ == "__main__":
     traceroute_parser.add_argument(

@@ -2,7 +2,6 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 from shapely.geometry import LineString
 
-
 from geolocation.api import GeolocationAPIClient, WorldCoordinates, get_my_ip
 from traceroute import (
     RouterResponse,
