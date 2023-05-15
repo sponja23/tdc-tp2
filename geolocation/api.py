@@ -100,6 +100,8 @@ class CachedGeolocationAPIClient(GeolocationAPIClient):
 
     def get_ip_location(self, ip: IPAddress) -> WorldCoordinates:
         if ip not in self.cache:
+            if os.environ.get("DEBUG"):
+                print(f"Cache miss para {ip}")
             coordinates = self.get_uncached_ip_location(ip)
             self.cache[ip] = [coordinates.latitude, coordinates.longitude]
             self.save_cache()
