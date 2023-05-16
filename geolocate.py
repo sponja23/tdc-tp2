@@ -8,7 +8,6 @@ from socket import inet_aton
 
 import geopandas as gpd
 from matplotlib import pyplot as plt
-from zipp import Path
 
 from geolocation.api import GeolocationAPIClient, get_my_ip
 from geolocation.geolocation import geolocate_route, plot_route
@@ -33,7 +32,7 @@ def is_valid_ip(ip: str) -> bool:
 
 if __name__ == "__main__":
     traceroute_parser.add_argument(
-        "--api-client",
+        "--api",
         default="dazzlepod",
         help="Cliente de geolocalización a usar",
         choices=GeolocationAPIClient.clients.keys(),
@@ -44,7 +43,7 @@ if __name__ == "__main__":
     if is_valid_ip(args.ip):
         samples = sample_route_from_args(args)
     else:  # Se asume que es un path
-        samples = load_samples(Path("routes") / f"{args.ip}.samples")
+        samples = load_samples(f"samples/{args.ip}.samples")
 
     route = average_route(samples)
 
@@ -52,7 +51,7 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots()
 
-    api_client = GeolocationAPIClient.get_client(args.api_client)
+    api_client = GeolocationAPIClient.get_client(args.api)
     route_coordinates = geolocate_route(route, api_client)
 
     plot_route(route, route_coordinates, ax)
