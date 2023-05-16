@@ -1,16 +1,14 @@
+import pickle
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
-from collections import Counter
 from dataclasses import dataclass
 from pprint import pprint
 from time import time
 from typing import Any, Callable, TypeVar
-from socket import getnameinfo
 
 from scapy.layers.inet import ICMP, IP
 from scapy.sendrecv import sr1
 from tqdm import tqdm
-import pickle
 
 SAMPLES_PER_TTL = 2**5
 MAX_TTL = 2**6
@@ -64,11 +62,13 @@ class NoResponse(RouteResponse):
 class RouterResponse(RouteResponse):
     ip: str
     segment_time: float
+    rtt_time: float
 
     def __repr__(self) -> str:
-        domain = getnameinfo((self.ip, 0), 0)[0]
-        domain_text = f" ({domain})" if domain != self.ip else ''
-        return f"({self.ip}{domain_text}, {self.segment_time})"
+        # Lo comento porque me tira excepción
+        # domain = getnameinfo((self.ip, 0), 0)[0]
+        # domain_text = f" ({domain})" if domain != self.ip else ""
+        return f"({self.ip}, {self.segment_time})"
 
     def get_segment_time(self) -> float:
         return self.segment_time
@@ -93,7 +93,8 @@ def traceroute(
     dst_ip: IPAddress, max_ttl: int = MAX_TTL, timeout: float = 1
 ) -> TTLRoute:
     """Retorna una lista de RouteResponse con los TTLs de la ruta al destino"""
-    route: TTLRoute = [RouterResponse(IP().src, 0)]
+    route: TTLRoute = [RouterResponse(ip=IP().src, segment_time=0, rtt_time=0)]
+    last_rtt = 0.0
 
     for ttl in tqdm(range(1, max_ttl + 1), desc="Midiendo TTLs"):
         res, rtt = echo_request(dst_ip, ttl, timeout=timeout)
@@ -102,17 +103,19 @@ def traceroute(
             route.append(NoResponse())
             continue
 
-        rtt_diff = rtt - sum(response.get_segment_time() for response in route)
+        rtt_diff = rtt - last_rtt
 
         # Consigna:
         # > Tener en cuenta que esta resta puede dar un número negativo,
         # > en este caso se puede obviar el cálculo de RTT entre saltos y
         # > calcularlo con el próximo salto que de positivo.
 
-        if rtt_diff < 0:
+        if rtt_diff > 0:
+            last_rtt = rtt
+        else:
             rtt_diff = 0
 
-        route.append(RouterResponse(ip=res.src, segment_time=rtt_diff))
+        route.append(RouterResponse(ip=res.src, segment_time=rtt_diff, rtt_time=rtt))
 
         # llegamos al destino
         if res.src == dst_ip:
@@ -146,53 +149,8 @@ def sample_routes(
     return routes
 
 
-def average_route(route_samples: RouteSamples) -> TTLRoute:
-    """
-    Retorna la ruta promedio de una lista de rutas.
-
-    La ruta promedio es una lista de RouterResponse, donde cada RouterResponse
-    tiene como ip la ip más frecuente de las respuestas para ese TTL, y como
-    segment_time el promedio de los segment_time de las respuestas para esa IP.
-    """
-    average_route: TTLRoute = []
-
-    most_common_distance, _ = Counter(
-        len(route) for route in route_samples if not isinstance(route[-1], NoResponse)
-    ).most_common(1)[0]
-
-    # Nos quedamos solo con las rutas de la misma distancia
-    route_samples = [
-        route for route in route_samples if len(route) == most_common_distance
-    ]
-
-    for ttl_responses in zip(*route_samples):
-        if all(isinstance(response, NoResponse) for response in ttl_responses):
-            average_route.append(NoResponse())
-            continue
-
-        most_common_ip, num_pkts_with_ip = Counter(
-            response.ip
-            for response in ttl_responses
-            if isinstance(response, RouterResponse)
-        ).most_common(1)[0]
-
-        average_segment_time = (
-            sum(
-                response.get_segment_time()
-                for response in ttl_responses
-                if isinstance(response, RouterResponse)
-                and response.ip == most_common_ip
-            )
-            / num_pkts_with_ip
-        )
-
-        average_route.append(RouterResponse(most_common_ip, average_segment_time))
-
-    return average_route
-
-
 traceroute_parser = ArgumentParser()
-traceroute_parser.add_argument("ip", help="IP a geolocalizar")
+traceroute_parser.add_argument("ip", help="IP destino")
 traceroute_parser.add_argument(
     "--samples", type=int, default=SAMPLES_PER_TTL, help="Cantidad de muestras"
 )
@@ -202,28 +160,35 @@ traceroute_parser.add_argument(
 traceroute_parser.add_argument(
     "--timeout", type=float, default=1, help="Timeout para cada paquete"
 )
-traceroute_parser.add_argument(
-    "--output", help="Path a donde guardar la ruta"
-)
 
 
-def average_route_from_args(args: Namespace) -> TTLRoute:
-    routes = sample_routes(
+def sample_route_from_args(args: Namespace) -> RouteSamples:
+    return sample_routes(
         args.ip,
         samples_per_ttl=args.samples,
         max_ttl=args.max_ttl,
         timeout=args.timeout,
     )
 
-    return average_route(routes)
+
+def load_samples(path: str) -> RouteSamples:
+    with open(path, "rb") as pkl:
+        return pickle.load(pkl)
 
 
 if __name__ == "__main__":
+    traceroute_parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Path a donde guardar los samples",
+    )
+
     args = traceroute_parser.parse_args()
-    route = average_route_from_args(args)
+    samples = sample_route_from_args(args)
 
-    if args.output:
-        with open(args.output, 'wb') as pkl:
-            pickle.dump(route, pkl, pickle.HIGHEST_PROTOCOL)
+    if args.output is not None:
+        with open(args.output, "wb") as pkl:
+            pickle.dump(samples, pkl, pickle.HIGHEST_PROTOCOL)
 
-    pprint(route)
+    pprint(samples)

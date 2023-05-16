@@ -13,6 +13,8 @@ pandas = "*"
 shapely = "*"
 tqdm = "*"
 python-dotenv = "*"
+jupyter = "*"
+seaborn = "*"
 
 [dev-packages]
 mypy = "*"
