@@ -7,19 +7,24 @@ from pprint import pprint
 from socket import inet_aton
 
 import geopandas as gpd
+import seaborn as sns
 from matplotlib import pyplot as plt
 
 from geolocation.api import GeolocationAPIClient, get_my_ip
 from geolocation.geolocation import geolocate_route, plot_route
+from stats import average_route
 from traceroute import (  # noqa: F401
+    NoResponse,  # noqa: F401
+    RouteResponse,  # noqa: F401
+    RouterResponse,  # noqa: F401
     load_samples,
     sample_route_from_args,
     traceroute_parser,
-    RouteResponse,  # noqa: F401
-    RouterResponse,  # noqa: F401
-    NoResponse,  # noqa: F401
 )
-from stats import average_route
+
+sns.set(
+    rc={"text.usetex": True, "font.family": "serif", "font.serif": "Computer Modern"}
+)
 
 
 def is_valid_ip(ip: str) -> bool:

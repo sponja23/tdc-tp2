@@ -42,13 +42,13 @@ def average_route(route_samples: RouteSamples) -> TTLRoute:
     """
     average_route: TTLRoute = []
 
-    most_common_distance, _ = Counter(
+    most_common_length, _ = Counter(
         len(route) for route in route_samples if not isinstance(route[-1], NoResponse)
     ).most_common(1)[0]
 
     # Nos quedamos solo con las rutas de la misma distancia
     route_samples = [
-        route for route in route_samples if len(route) == most_common_distance
+        route for route in route_samples if len(route) == most_common_length
     ]
 
     for ttl_responses in zip(*route_samples):
