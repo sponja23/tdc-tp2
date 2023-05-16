@@ -4,7 +4,7 @@ from traceroute import NoResponse, RouteSamples, RouterResponse, TTLRoute
 
 def filter_only_responses(route: TTLRoute) -> TTLRoute:
     """
-    Retorna una lista con solo las respuestas de una ruta.
+    Retorna una ruta que descarta los NoResponse.
     """
     return [response for response in route if not isinstance(response, NoResponse)]
 
@@ -98,3 +98,16 @@ def number_of_negative_ttls(route: TTLRoute) -> int:
         isinstance(response, RouterResponse) and response.segment_time == 0
         for response in route
     )
+
+
+def get_valid_segment_times_for_ttl(
+    route_samples: RouteSamples, ttl: int
+) -> list[float]:
+    """
+    Devuelve una lista con los RTT de los paquetes que llegaron al TTL dado.
+    """
+    return [
+        response.get_segment_time()
+        for route in route_samples
+        if (response := route[ttl - 1]).get_segment_time() > 0
+    ]
