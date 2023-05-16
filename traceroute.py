@@ -112,8 +112,6 @@ def traceroute(
 
         if rtt_diff > 0:
             last_rtt = rtt
-        else:
-            rtt_diff = 0
 
         route.append(RouterResponse(ip=res.src, segment_time=rtt_diff, rtt_time=rtt))
 
