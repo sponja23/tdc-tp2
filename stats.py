@@ -116,3 +116,14 @@ def get_valid_segment_times_for_ttl(
         for route in route_samples
         if (response := route[ttl]).get_segment_time() > 0
     ]
+
+
+def drop_localhost(samples: RouteSamples) -> RouteSamples:
+    """
+    Devuelve una lista de rutas sin la primera respuesta de cada ruta, que
+    corresponde a la respuesta del localhost.
+    """
+
+    assert all(route[0].is_localhost() for route in samples)
+
+    return [route[1:] for route in samples]

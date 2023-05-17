@@ -17,20 +17,21 @@ def geolocate_route(
     route: TTLRoute, api_client: GeolocationAPIClient
 ) -> list[WorldCoordinates]:
     assert len(route) > 2, "La ruta es demasiado corta"
-
-    assert route[0].is_localhost(), "La ruta no comienza en localhost"
     assert route[1].is_private(), "La ruta no comienza en una IP privada"
 
-    route[1] = RouterResponse(
+    if route[0].is_localhost():
+        route = route[1:]
+
+    route[0] = RouterResponse(
         ttl=1,
         ip=get_my_ip(),
-        segment_time=route[1].get_segment_time(),
-        rtt_time=route[1].rtt_time if isinstance(route[1], RouterResponse) else 0,
+        segment_time=route[0].get_segment_time(),
+        rtt_time=route[0].rtt_time if isinstance(route[0], RouterResponse) else 0,
     )
 
     return [
         api_client.get_ip_location(response.ip)
-        for response in tqdm(route[1:], desc="Geolocalizando ruta")
+        for response in tqdm(route, desc="Geolocalizando ruta")
         if isinstance(response, RouterResponse)  # TODO (capaz): Manejar NoResponse
     ]
 
