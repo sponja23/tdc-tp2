@@ -1,5 +1,3 @@
-import os
-
 import dotenv
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -25,7 +23,7 @@ def geolocate_route(
 
     route[1] = RouterResponse(
         ttl=1,
-        ip=os.environ.get("MY_IP") or get_my_ip(),
+        ip=get_my_ip(),
         segment_time=route[1].get_segment_time(),
         rtt_time=route[1].rtt_time if isinstance(route[1], RouterResponse) else 0,
     )
@@ -37,22 +35,75 @@ def geolocate_route(
     ]
 
 
-def plot_route(
-    route: TTLRoute, route_coordinates: list[WorldCoordinates], ax: plt.Axes
-) -> None:
+class Cluster:
+    def __init__(self) -> None:
+        self.points: list[WorldCoordinates] = []
+        self.indices: list[int] = []
+
+    def add_point(self, point: WorldCoordinates, index: int) -> None:
+        self.points.append(point)
+        self.indices.append(index)
+
+    def should_add_point(self, point: WorldCoordinates, tol: float) -> bool:
+        return all(
+            point.distance_from(other_point) < tol for other_point in self.points
+        )
+
+    @property
+    def center(self) -> WorldCoordinates:
+        """
+        Asumo que las coordenadas están cerca, así que trato
+        a la tierra como si fuera plana.
+        """
+
+        return WorldCoordinates(
+            latitude=sum(point.latitude for point in self.points) / len(self.points),
+            longitude=sum(point.longitude for point in self.points) / len(self.points),
+        )
+
+
+def get_point_clusters(
+    route_coordinates: list[WorldCoordinates], tol: float = 100.0
+) -> list[Cluster]:
+    """
+    Devuelve los índices de los puntos que forman clusters de radio tol.
+    """
+
+    # Estrategia greedy: se toma el primer punto y se van agregando los que están a
+    # distancia tol de él. No es correcta pero nuestros clusters están muy marcados.
+    clusters: list[Cluster] = []
+    for i, point in enumerate(route_coordinates):
+        for cluster in clusters:
+            if cluster.should_add_point(point, tol):
+                cluster.add_point(point, i)
+                break
+        else:
+            cluster = Cluster()
+            cluster.add_point(point, i)
+            clusters.append(cluster)
+
+    return clusters
+
+
+def plot_route(route_coordinates: list[WorldCoordinates], ax: plt.Axes) -> None:
     route_line = LineString(
         [(point.longitude, point.latitude) for point in route_coordinates]
     )
 
-    # TODO: Evitar que se superpongan los labels
-    for response, x, y in zip(route[1:], *route_line.xy):
-        if isinstance(response, RouterResponse):
-            ax.annotate(
-                response.ip,
-                xy=(x, y),
-                ha="center",
-                va="center",
-                size=8,
-            )
-
     gpd.GeoSeries(route_line).plot(ax=ax, color="red")
+
+
+def plot_route_clusters(
+    route_coordinates: list[WorldCoordinates], index_to_ttl: list[int], ax: plt.Axes
+) -> None:
+    clusters = get_point_clusters(route_coordinates)
+
+    for cluster in clusters:
+        ax.annotate(
+            ",".join(f"\\textbf{{{index_to_ttl[index]}}}" for index in cluster.indices),
+            xy=(cluster.center.longitude, cluster.center.latitude),
+            ha="left",
+            va="bottom",
+            color="red",
+            size=8,
+        )

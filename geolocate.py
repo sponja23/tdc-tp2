@@ -11,7 +11,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from geolocation.api import GeolocationAPIClient, get_my_ip
-from geolocation.geolocation import geolocate_route, plot_route
+from geolocation.geolocation import geolocate_route, plot_route, plot_route_clusters
 from stats import average_route
 from traceroute import (  # noqa: F401
     NoResponse,  # noqa: F401
@@ -43,6 +43,14 @@ if __name__ == "__main__":
         choices=GeolocationAPIClient.clients.keys(),
     )
 
+    traceroute_parser.add_argument(
+        "--output",
+        "-o",
+        help="Archivo donde guardar el mapa generado",
+        type=str,
+        default=None,
+    )
+
     args = traceroute_parser.parse_args()
 
     if is_valid_ip(args.ip):
@@ -59,7 +67,17 @@ if __name__ == "__main__":
     api_client = GeolocationAPIClient.get_client(args.api)
     route_coordinates = geolocate_route(route, api_client)
 
-    plot_route(route, route_coordinates, ax)
+    plot_route(route_coordinates, ax)
+
+    plot_route_clusters(
+        route_coordinates,
+        [
+            response.ttl
+            for response in route[1:]
+            if isinstance(response, RouterResponse)
+        ],
+        ax,
+    )
 
     world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
     world.plot(ax=ax, color="white", edgecolor="black")
@@ -67,3 +85,6 @@ if __name__ == "__main__":
     ax.set_title(f"Geolocalización de ruta desde {get_my_ip()} hasta {args.ip}")
 
     plt.show()
+
+    if args.output:
+        fig.save(args.output, format="pdf")

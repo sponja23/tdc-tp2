@@ -15,6 +15,7 @@ tqdm = "*"
 python-dotenv = "*"
 jupyter = "*"
 seaborn = "*"
+geopy = "*"
 
 [dev-packages]
 mypy = "*"

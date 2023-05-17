@@ -9,6 +9,7 @@ from typing import Any, Mapping, Type
 
 import dotenv
 import requests
+from geopy.distance import distance
 
 from traceroute import IPAddress
 
@@ -24,6 +25,8 @@ if not CACHE_DIRECTORY.exists():
 
 
 def get_my_ip() -> IPAddress:
+    if "MY_IP" in os.environ:
+        return os.environ["MY_IP"]
     response = requests.get("https://api.ipify.org")
     response.raise_for_status()
     return response.text
@@ -33,6 +36,11 @@ def get_my_ip() -> IPAddress:
 class WorldCoordinates:
     latitude: float
     longitude: float
+
+    def distance_from(self, other: "WorldCoordinates") -> float:
+        return distance(
+            (self.latitude, self.longitude), (other.latitude, other.longitude)
+        ).km
 
 
 class GeolocationAPIClient(ABC):
@@ -60,7 +68,9 @@ class JSONGeolocationAPIClient(GeolocationAPIClient):
     def get_location_from_json_response(
         self, response: Mapping[str, Any]
     ) -> WorldCoordinates:
-        return WorldCoordinates(response["latitude"], response["longitude"])
+        return WorldCoordinates(
+            float(response["latitude"]), float(response["longitude"])
+        )
 
     def get_location_from_request(self, ip: IPAddress) -> WorldCoordinates:
         response = requests.get(self.get_url(ip))
