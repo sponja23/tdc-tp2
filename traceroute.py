@@ -26,7 +26,10 @@ def timeit(f: Callable[[], T]) -> tuple[T, float]:
     return (ret, end_time - start_time)
 
 
+@dataclass(frozen=True)
 class RouteResponse(ABC):
+    ttl: int
+
     @abstractmethod
     def get_segment_time(self) -> float:
         pass
@@ -93,14 +96,14 @@ def traceroute(
     dst_ip: IPAddress, max_ttl: int = MAX_TTL, timeout: float = 1
 ) -> TTLRoute:
     """Retorna una lista de RouteResponse con los TTLs de la ruta al destino"""
-    route: TTLRoute = [RouterResponse(ip=IP().src, segment_time=0, rtt_time=0)]
+    route: TTLRoute = [RouterResponse(ttl=0, ip=IP().src, segment_time=0, rtt_time=0)]
     last_rtt = 0.0
 
     for ttl in tqdm(range(1, max_ttl + 1), desc="Midiendo TTLs"):
         res, rtt = echo_request(dst_ip, ttl, timeout=timeout)
 
         if res is None:
-            route.append(NoResponse())
+            route.append(NoResponse(ttl=ttl))
             continue
 
         rtt_diff = rtt - last_rtt
@@ -113,7 +116,9 @@ def traceroute(
         if rtt_diff > 0:
             last_rtt = rtt
 
-        route.append(RouterResponse(ip=res.src, segment_time=rtt_diff, rtt_time=rtt))
+        route.append(
+            RouterResponse(ttl=ttl, ip=res.src, segment_time=rtt_diff, rtt_time=rtt)
+        )
 
         # llegamos al destino
         if res.src == dst_ip:

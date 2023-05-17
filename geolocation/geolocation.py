@@ -24,9 +24,10 @@ def geolocate_route(
     assert route[1].is_private(), "La ruta no comienza en una IP privada"
 
     route[1] = RouterResponse(
-        os.environ.get("MY_IP") or get_my_ip(),
-        route[1].get_segment_time(),
-        route[1].rtt_time if isinstance(route[1], RouterResponse) else 0,
+        ttl=1,
+        ip=os.environ.get("MY_IP") or get_my_ip(),
+        segment_time=route[1].get_segment_time(),
+        rtt_time=route[1].rtt_time if isinstance(route[1], RouterResponse) else 0,
     )
 
     return [

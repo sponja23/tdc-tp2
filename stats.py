@@ -2,11 +2,11 @@ from collections import Counter
 from traceroute import NoResponse, RouteSamples, RouterResponse, TTLRoute
 
 
-def filter_only_responses(route: TTLRoute) -> TTLRoute:
+def filter_only_responses(route: TTLRoute) -> list[RouterResponse]:
     """
     Retorna una ruta que descarta los NoResponse.
     """
-    return [response for response in route if not isinstance(response, NoResponse)]
+    return [response for response in route if isinstance(response, RouterResponse)]
 
 
 def number_no_responses(route: TTLRoute) -> int:
@@ -51,9 +51,9 @@ def average_route(route_samples: RouteSamples) -> TTLRoute:
         route for route in route_samples if len(route) == most_common_length
     ]
 
-    for ttl_responses in zip(*route_samples):
+    for ttl, ttl_responses in enumerate(zip(*route_samples)):
         if all(isinstance(response, NoResponse) for response in ttl_responses):
-            average_route.append(NoResponse())
+            average_route.append(NoResponse(ttl=ttl))
             continue
 
         most_common_ip, num_pkts_with_ip = Counter(
@@ -83,7 +83,12 @@ def average_route(route_samples: RouteSamples) -> TTLRoute:
         )
 
         average_route.append(
-            RouterResponse(most_common_ip, average_segment_time, average_rtt_time)
+            RouterResponse(
+                ttl=ttl,
+                ip=most_common_ip,
+                segment_time=average_segment_time,
+                rtt_time=average_rtt_time,
+            )
         )
 
     return average_route
@@ -109,5 +114,5 @@ def get_valid_segment_times_for_ttl(
     return [
         response.get_segment_time()
         for route in route_samples
-        if (response := route[ttl - 1]).get_segment_time() > 0
+        if (response := route[ttl]).get_segment_time() > 0
     ]
