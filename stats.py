@@ -1,4 +1,7 @@
 from collections import Counter
+
+import numpy as np
+import scipy.stats as stats
 from traceroute import NoResponse, RouteSamples, RouterResponse, TTLRoute
 
 
@@ -127,3 +130,26 @@ def drop_localhost(samples: RouteSamples) -> RouteSamples:
     assert all(route[0].is_localhost() for route in samples)
 
     return [route[1:] for route in samples]
+
+
+def modified_thompson_tau(samples: TTLRoute) -> float:
+    """
+    Devuelve el valor de tau de Thompson para una lista de rutas.
+    """
+    segment_times = np.array(
+        [
+            response.segment_time
+            for response in samples
+            if isinstance(response, RouterResponse)
+        ]
+    )
+
+    n = len(segment_times)
+
+    t_student_critical_value = stats.t.pdf(x=0.05 / 2, df=n - 2)
+
+    tau = (t_student_critical_value * (n - 1)) / (
+        np.sqrt(n) * np.sqrt((n - 2 + t_student_critical_value**2))
+    )
+
+    return tau

@@ -16,6 +16,7 @@ python-dotenv = "*"
 jupyter = "*"
 seaborn = "*"
 geopy = "*"
+scipy = "*"
 
 [dev-packages]
 mypy = "*"
