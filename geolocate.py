@@ -95,4 +95,4 @@ if __name__ == "__main__":
         plt.show()
 
     if args.output:
-        fig.savefig(args.output, format="pdf")
+        fig.savefig(args.output, format="pdf", bbox_inches='tight')

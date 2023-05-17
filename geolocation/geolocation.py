@@ -54,12 +54,12 @@ class Cluster:
     def center(self) -> WorldCoordinates:
         """
         Asumo que las coordenadas están cerca, así que trato
-        a la tierra como si fuera plana.
+        a la tierra como si fuera plana, porque lo es.
         """
 
         return WorldCoordinates(
-            latitude=sum(point.latitude for point in self.points) / len(self.points),
-            longitude=sum(point.longitude for point in self.points) / len(self.points),
+            latitude=sum(float(point.latitude) for point in self.points) / len(self.points),
+            longitude=sum(float(point.longitude) for point in self.points) / len(self.points),
         )
 
 
