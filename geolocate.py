@@ -51,6 +51,13 @@ if __name__ == "__main__":
         default=None,
     )
 
+    traceroute_parser.add_argument(
+        "--dont-show",
+        help="No mostrar el mapa generado",
+        action="store_true",
+        default=False,
+    )
+
     args = traceroute_parser.parse_args()
 
     if is_valid_ip(args.ip):
@@ -84,7 +91,8 @@ if __name__ == "__main__":
 
     ax.set_title(f"Geolocalización de ruta desde {get_my_ip()} hasta {args.ip}")
 
-    plt.show()
+    if not args.dont_show:
+        plt.show()
 
     if args.output:
-        fig.save(args.output, format="pdf")
+        fig.savefig(args.output, format="pdf")
