@@ -2,7 +2,8 @@ from collections import Counter
 
 import numpy as np
 import scipy.stats as stats
-from traceroute import NoResponse, RouteSamples, RouterResponse, TTLRoute
+
+from traceroute import NoResponse, RouterResponse, RouteSamples, TTLRoute
 
 
 def filter_only_responses(route: TTLRoute) -> list[RouterResponse]:
@@ -132,20 +133,10 @@ def drop_localhost(samples: RouteSamples) -> RouteSamples:
     return [route[1:] for route in samples]
 
 
-def modified_thompson_tau(samples: TTLRoute) -> float:
+def modified_thompson_tau(n: int) -> float:
     """
-    Devuelve el valor de tau de Thompson para una lista de rutas.
+    Devuelve el valor de tau de Thompson para un tamaño de muestra dado.
     """
-    segment_times = np.array(
-        [
-            response.segment_time
-            for response in samples
-            if isinstance(response, RouterResponse)
-        ]
-    )
-
-    n = len(segment_times)
-
     t_student_critical_value = stats.t.pdf(x=0.05 / 2, df=n - 2)
 
     tau = (t_student_critical_value * (n - 1)) / (
