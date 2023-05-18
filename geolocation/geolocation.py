@@ -58,8 +58,10 @@ class Cluster:
         """
 
         return WorldCoordinates(
-            latitude=sum(float(point.latitude) for point in self.points) / len(self.points),
-            longitude=sum(float(point.longitude) for point in self.points) / len(self.points),
+            latitude=sum(float(point.latitude) for point in self.points)
+            / len(self.points),
+            longitude=sum(float(point.longitude) for point in self.points)
+            / len(self.points),
         )
 
 

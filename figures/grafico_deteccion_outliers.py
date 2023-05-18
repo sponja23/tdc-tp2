@@ -10,6 +10,7 @@ def grafico_deteccion_outliers(
     *,
     ax: Axes,
     manual_threshold: float | None = None,
+    ttl_ocean_cables: set[int] = set(),
 ) -> None:
     valid_responses = [
         response for response in route[1:] if isinstance(response, RouterResponse)
@@ -44,10 +45,20 @@ def grafico_deteccion_outliers(
         else:
             return "black"
 
+    is_ocean = np.isin(ttls, list(ttl_ocean_cables))
+
     ax.scatter(
-        ttls,
-        segment_times,
-        color=[get_color(segment_time) for segment_time in segment_times],
+        ttls[is_ocean],
+        segment_times[is_ocean],
+        color=[get_color(segment_time) for segment_time in segment_times[is_ocean]],
+        marker="^",
+    )
+
+    ax.scatter(
+        ttls[~is_ocean],
+        segment_times[~is_ocean],
+        color=[get_color(segment_time) for segment_time in segment_times[~is_ocean]],
+        marker="o",
     )
 
     ax.axhline(
